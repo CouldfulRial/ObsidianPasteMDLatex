@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-paste-md-latex",
+  "version": "0.1.0",
+  "description": "Obsidian plugin to convert pasted LaTeX/list syntax into Markdown.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "latex",
+    "markdown"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.23.1",
+    "obsidian": "^1.6.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.6.2"
+  }
+}

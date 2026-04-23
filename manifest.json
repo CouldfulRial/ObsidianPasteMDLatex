@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-paste-md-latex",
+  "name": "Paste MD Latex",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Convert pasted LaTeX syntax into Obsidian Markdown automatically.",
+  "author": "yifangong",
+  "isDesktopOnly": false
+}
