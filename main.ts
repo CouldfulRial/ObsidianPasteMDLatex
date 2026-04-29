@@ -11,8 +11,13 @@ const INTERNAL_PASTE_WINDOW_MS = 15_000;
 
 const blockMathPattern = /\\begin\{(equation\*?|align\*?)\}\s*([\s\S]*?)\s*\\end\{\1\}/g;
 const inlineMathPattern = /\\\(([^\n]+?)\\\)/g;
+const latexTablePattern = /\\begin\{table\}([\s\S]*?)\\end\{table\}/g;
+const tabularPattern = /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/g;
+const standaloneTabularPattern =
+  /(?:\\begin\{center\}\s*)?(\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\})(?:\s*\\end\{center\})?/g;
+const markdownPipeTablePattern = /\|[^\n]*\|(\n\|[^\n]*\|)+/g;
 const supportedPattern =
-  /\\\([^\n]+?\\\)|\\begin\{(?:equation\*?|align\*?|itemize|enumerate)\}|\\item\b/;
+  /\\\([^\n]+?\\\)|\\begin\{(?:equation\*?|align\*?|itemize|enumerate|table|tabular|center)\}|\\item\b|\|[^\n]*\|/;
 const innermostListPattern =
   /\\begin\{(itemize|enumerate)\}((?:(?!\\begin\{(?:itemize|enumerate)\}|\\end\{(?:itemize|enumerate)\})[\s\S])*)\\end\{\1\}/g;
 
@@ -99,6 +104,8 @@ export default class PasteMdLatexPlugin extends Plugin {
 
 function transformPastedText(input: string): string {
   let transformed = normalizeLineEndings(input);
+  transformed = convertLatexTables(transformed);
+  transformed = convertMarkdownTables(transformed);
   transformed = convertBlockMathEnvironments(transformed);
   transformed = convertLatexLists(transformed);
   transformed = convertInlineMathDelimiters(transformed);
@@ -108,6 +115,81 @@ function transformPastedText(input: string): string {
 
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, "\n");
+}
+
+function convertLatexTables(input: string): string {
+  let transformed = input.replace(latexTablePattern, (_match, tableContent: string): string => {
+    const tabularMatch = tableContent.match(tabularPattern);
+    if (!tabularMatch) {
+      return _match;
+    }
+
+    const tabularContent = tabularMatch[0];
+    return convertTabularToMarkdown(tabularContent);
+  });
+
+  transformed = transformed.replace(standaloneTabularPattern, (_match, tabularEnv: string): string => {
+    return convertTabularToMarkdown(tabularEnv);
+  });
+
+  return transformed;
+}
+
+function convertTabularToMarkdown(tabularEnv: string): string {
+  const contentMatch = tabularEnv.match(
+    /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/
+  );
+  if (!contentMatch) {
+    return tabularEnv;
+  }
+
+  const rawContent = contentMatch[1];
+  const rows = rawContent
+    .replace(/\\hline\s*/g, "")
+    .split(/\\\\\s*(?:\n|$)/)
+    .map((row) => row.trim())
+    .filter((row) => row.length > 0);
+
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const markdownRows = rows.map((row) => {
+    const cells = row.split(/&/).map((cell) => cell.trim());
+    return `| ${cells.join(" | ")} |`;
+  });
+
+  if (markdownRows.length > 0) {
+    const headerCount = markdownRows[0].split("|").length - 2;
+    const separator = `| ${Array(headerCount).fill("---").join(" | ")} |`;
+    markdownRows.splice(1, 0, separator);
+  }
+
+  return markdownRows.join("\n");
+}
+
+function convertMarkdownTables(input: string): string {
+  return input.replace(markdownPipeTablePattern, (match: string): string => {
+    const lines = match.split("\n");
+    if (lines.length < 2) {
+      return match;
+    }
+
+    const headerLine = lines[0];
+    const hasSeparator = lines.some((line) => /^\|\s*[-: ]+\s*\|/.test(line));
+
+    if (hasSeparator) {
+      return match;
+    }
+
+    const headerCells = headerLine
+      .split("|")
+      .filter((cell) => cell.trim().length > 0);
+    const separatorCount = headerCells.length;
+    const separator = `| ${Array(separatorCount).fill("---").join(" | ")} |`;
+
+    return `${headerLine}\n${separator}\n${lines.slice(1).join("\n")}`;
+  });
 }
 
 function convertInlineMathDelimiters(input: string): string {

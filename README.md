@@ -15,6 +15,10 @@ Obsidian plugin that converts pasted LaTeX/list syntax into Obsidian-friendly Ma
 - Converts LaTeX enumerated lists to Markdown numbered lists:
 	- `\begin{enumerate}` / `\item` / `\end{enumerate}` -> `1. ...`
 - Handles nested `itemize` / `enumerate` structures with indentation.
+- Converts LaTeX tables to Obsidian-style markdown tables:
+	- `\begin{table}` with `\begin{tabular}` -> `| ... | ... |` with header separator
+- Normalizes markdown pipe-format tables to include proper Obsidian header separator:
+	- Detects existing markdown tables and ensures `| --- | --- |` separator row
 - Leaves paste behavior untouched when there are no supported patterns.
 
 ## Development Setup
@@ -99,4 +103,38 @@ Input:
 Output:
 1. First
 2. Second
+```
+
+LaTeX table:
+
+```text
+Input:
+\begin{table}
+\begin{tabular}{ll}
+Name & Age \\
+Alice & 30 \\
+Bob & 25 \\
+\end{tabular}
+\end{table}
+
+Output:
+| Name | Age |
+| --- | --- |
+| Alice | 30 |
+| Bob | 25 |
+```
+
+Markdown pipe table (with auto-added separator):
+
+```text
+Input:
+| Color | Hex |
+| Red | #FF0000 |
+| Blue | #0000FF |
+
+Output:
+| Color | Hex |
+| --- | --- |
+| Red | #FF0000 |
+| Blue | #0000FF |
 ```
