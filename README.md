@@ -2,6 +2,12 @@
 
 Obsidian plugin that converts pasted LaTeX/list syntax into Obsidian-friendly Markdown.
 
+## Prerequisite
+
+To render converted algorithm blocks (```pseudo```), you need to install the Obsidian-Pseudocode plugin:
+
+- https://github.com/ytliu74/obsidian-pseudocode
+
 ## Features
 
 - Converts inline math: `\( ... \)` -> `$ ... $`
@@ -15,6 +21,8 @@ Obsidian plugin that converts pasted LaTeX/list syntax into Obsidian-friendly Ma
 	- `\textit{...}` and `\emph{...}` -> `*...*`
 - Converts LaTeX quote text:
 	- `\quote{...}` -> `> ...`
+- Converts LaTeX algorithm blocks to Obsidian-Pseudocode style:
+	- `\begin{algorithm} ... \end{algorithm}` -> ```pseudo fenced block
 - Converts block math environments to fenced math blocks:
 	- `\begin{equation} ... \end{equation}` -> `$$ ... $$`
 	- `\begin{equation*} ... \end{equation*}` -> `$$ ... $$`
@@ -98,6 +106,28 @@ Input:
 Output:
 > This is a quoted passage.
 ```
+
+Pseudocode block:
+
+````text
+Input:
+\begin{algorithm}
+\caption{Quicksort}
+\begin{algorithmic}
+\State $x \gets A[r]$
+\End{algorithmic}
+\end{algorithm}
+
+Output:
+```pseudo
+\begin{algorithm}
+\caption{Quicksort}
+\begin{algorithmic}
+\State $x \gets A[r]$
+\End{algorithmic}
+\end{algorithm}
+```
+````
 
 Block equation:
 

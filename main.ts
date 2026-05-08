@@ -11,6 +11,7 @@ const INTERNAL_PASTE_WINDOW_MS = 15_000;
 
 const blockMathPattern = /\\begin\{(equation\*?|align\*?)\}\s*([\s\S]*?)\s*\\end\{\1\}/g;
 const inlineMathPattern = /\\\(([^\n]+?)\\\)/g;
+const algorithmPattern = /\\begin\{algorithm\}[\s\S]*?\\end\{algorithm\}/g;
 const latexTablePattern = /\\begin\{table\}([\s\S]*?)\\end\{table\}/g;
 const tabularPattern = /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/g;
 const sectionPattern = /^\\section\{([^{}]+)\}$/gm;
@@ -21,7 +22,7 @@ const standaloneTabularPattern =
   /(?:\\begin\{center\}\s*)?(\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\})(?:\s*\\end\{center\})?/g;
 const markdownPipeTablePattern = /\|[^\n]*\|(\n\|[^\n]*\|)+/g;
 const supportedPattern =
-  /\\\([^\n]+?\\\)|\\begin\{(?:equation\*?|align\*?|itemize|enumerate|table|tabular|center)\}|\\item\b|\|[^\n]*\|/;
+  /\\\([^\n]+?\\\)|\\begin\{(?:algorithm|equation\*?|align\*?|itemize|enumerate|table|tabular|center)\}|\\item\b|\|[^\n]*\|/;
 const innermostListPattern =
   /\\begin\{(itemize|enumerate)\}((?:(?!\\begin\{(?:itemize|enumerate)\}|\\end\{(?:itemize|enumerate)\})[\s\S])*)\\end\{\1\}/g;
 
@@ -108,16 +109,24 @@ export default class PasteMdLatexPlugin extends Plugin {
 
 function transformPastedText(input: string): string {
   let transformed = normalizeLineEndings(input);
-  transformed = convertLatexTables(transformed);
-  transformed = convertSectionHeadings(transformed);
-  transformed = convertBoldAndItalic(transformed);
-  transformed = convertQuoteText(transformed);
-  transformed = convertMarkdownTables(transformed);
-  transformed = convertBlockMathEnvironments(transformed);
-  transformed = convertLatexLists(transformed);
-  transformed = convertInlineMathDelimiters(transformed);
-  transformed = normalizeSpacing(transformed);
+  transformed = convertAlgorithmEnvironments(transformed);
+  transformed = applyOutsidePseudoBlocks(transformed, convertLatexTables);
+  transformed = applyOutsidePseudoBlocks(transformed, convertSectionHeadings);
+  transformed = applyOutsidePseudoBlocks(transformed, convertBoldAndItalic);
+  transformed = applyOutsidePseudoBlocks(transformed, convertQuoteText);
+  transformed = applyOutsidePseudoBlocks(transformed, convertMarkdownTables);
+  transformed = applyOutsidePseudoBlocks(transformed, convertBlockMathEnvironments);
+  transformed = applyOutsidePseudoBlocks(transformed, convertLatexLists);
+  transformed = applyOutsidePseudoBlocks(transformed, convertInlineMathDelimiters);
+  transformed = applyOutsidePseudoBlocks(transformed, normalizeSpacing);
   return transformed;
+}
+
+function applyOutsidePseudoBlocks(input: string, transform: (text: string) => string): string {
+  const segments = input.split(/(```pseudo[\s\S]*?```)/g);
+  return segments
+    .map((segment) => (segment.startsWith("```pseudo") ? segment : transform(segment)))
+    .join("");
 }
 
 function normalizeLineEndings(text: string): string {
@@ -129,6 +138,54 @@ function convertSectionHeadings(input: string): string {
     .replace(sectionPattern, (_match, title: string) => `# ${title.trim()}`)
     .replace(subsectionPattern, (_match, title: string) => `## ${title.trim()}`)
     .replace(subsubsectionPattern, (_match, title: string) => `### ${title.trim()}`);
+}
+
+function convertAlgorithmEnvironments(input: string): string {
+  return input.replace(algorithmPattern, (match: string) => {
+    const normalized = stripAlgorithmModifiers(match.trim());
+    return "\n```pseudo\n" + normalized + "\n```\n";
+  });
+}
+
+function stripAlgorithmModifiers(input: string): string {
+  let output = input;
+
+  output = output.replace(/\\begin\{algorithm\}\[[^\]]*\]/g, "\\begin{algorithm}");
+  output = output.replace(/\\begin\{algorithmic\}\[[^\]]*\]/g, "\\begin{algorithmic}");
+  output = output.replace(/\\caption\s*\[[^\]]*\]\s*\{/g, "\\caption{");
+
+  output = output.replace(
+    /(\\(?:State|If|ElsIf|Elif|For|ForAll|While|Procedure|Function|Require|Ensure|Return|Print))\[[^\]]*\]/g,
+    "$1"
+  );
+
+  output = sanitizeAlgorithmMathEnvironments(output);
+
+  // Obsidian-Pseudocode parser does not accept standalone spacing commands in algorithmic statements.
+  output = output.replace(/\\q(?:quad|uad)\b/g, "");
+  output = output.replace(/\\State[ \t]+/g, "\\State ");
+
+  return output;
+}
+
+function sanitizeAlgorithmMathEnvironments(input: string): string {
+  const algorithmMathPattern = /\\begin\{(equation\*?|align\*?)\}([\s\S]*?)\\end\{\1\}/g;
+
+  return input.replace(algorithmMathPattern, (_match, _env: string, content: string) => {
+    const sanitized = flattenWhitespace(
+      content
+        .replace(/\\label\s*\{[^{}]*\}\s*/g, "")
+        .replace(/\\begin\{aligned\}|\\end\{aligned\}/g, " ")
+        .replace(/\\\\/g, " ")
+        .replace(/&/g, " ")
+    );
+
+    if (sanitized.length === 0) {
+      return "";
+    }
+
+    return `\n\\State $${sanitized}$\n`;
+  });
 }
 
 function convertBoldAndItalic(input: string): string {
