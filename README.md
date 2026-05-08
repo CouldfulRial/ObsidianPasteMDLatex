@@ -5,6 +5,16 @@ Obsidian plugin that converts pasted LaTeX/list syntax into Obsidian-friendly Ma
 ## Features
 
 - Converts inline math: `\( ... \)` -> `$ ... $`
+- Converts LaTeX headings:
+	- `\section{...}` -> `# ...`
+	- `\subsection{...}` -> `## ...`
+	- `\subsubsection{...}` -> `### ...`
+- Converts LaTeX bold text:
+	- `\textbf{...}` -> `**...**`
+- Converts LaTeX italic text:
+	- `\textit{...}` and `\emph{...}` -> `*...*`
+- Converts LaTeX quote text:
+	- `\quote{...}` -> `> ...`
 - Converts block math environments to fenced math blocks:
 	- `\begin{equation} ... \end{equation}` -> `$$ ... $$`
 	- `\begin{equation*} ... \end{equation*}` -> `$$ ... $$`
@@ -61,6 +71,32 @@ Inline equation:
 ```text
 Input:  The solution is \( x^2 + y^2 = 1 \).
 Output: The solution is $x^2 + y^2 = 1$.
+```
+
+Headings and text style:
+
+```text
+Input:
+\section{Introduction}
+\subsection{Background}
+\subsubsection{Details}
+This is \textbf{bold} and this is \textit{italic}. Also \emph{emphasized}.
+
+Output:
+# Introduction
+## Background
+### Details
+This is **bold** and this is *italic*. Also *emphasized*.
+```
+
+Quote text:
+
+```text
+Input:
+\quote{This is a quoted passage.}
+
+Output:
+> This is a quoted passage.
 ```
 
 Block equation:

@@ -13,6 +13,10 @@ const blockMathPattern = /\\begin\{(equation\*?|align\*?)\}\s*([\s\S]*?)\s*\\end
 const inlineMathPattern = /\\\(([^\n]+?)\\\)/g;
 const latexTablePattern = /\\begin\{table\}([\s\S]*?)\\end\{table\}/g;
 const tabularPattern = /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/g;
+const sectionPattern = /^\\section\{([^{}]+)\}$/gm;
+const subsectionPattern = /^\\subsection\{([^{}]+)\}$/gm;
+const subsubsectionPattern = /^\\subsubsection\{([^{}]+)\}$/gm;
+const quotePattern = /\\quote\{([^{}]+)\}/g;
 const standaloneTabularPattern =
   /(?:\\begin\{center\}\s*)?(\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\})(?:\s*\\end\{center\})?/g;
 const markdownPipeTablePattern = /\|[^\n]*\|(\n\|[^\n]*\|)+/g;
@@ -105,6 +109,9 @@ export default class PasteMdLatexPlugin extends Plugin {
 function transformPastedText(input: string): string {
   let transformed = normalizeLineEndings(input);
   transformed = convertLatexTables(transformed);
+  transformed = convertSectionHeadings(transformed);
+  transformed = convertBoldAndItalic(transformed);
+  transformed = convertQuoteText(transformed);
   transformed = convertMarkdownTables(transformed);
   transformed = convertBlockMathEnvironments(transformed);
   transformed = convertLatexLists(transformed);
@@ -115,6 +122,37 @@ function transformPastedText(input: string): string {
 
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, "\n");
+}
+
+function convertSectionHeadings(input: string): string {
+  return input
+    .replace(sectionPattern, (_match, title: string) => `# ${title.trim()}`)
+    .replace(subsectionPattern, (_match, title: string) => `## ${title.trim()}`)
+    .replace(subsubsectionPattern, (_match, title: string) => `### ${title.trim()}`);
+}
+
+function convertBoldAndItalic(input: string): string {
+  return input
+    .replace(/\\textbf\{([^{}]+)\}/g, (_match, text: string) => `**${text.trim()}**`)
+    .replace(/\\(?:textit|emph)\{([^{}]+)\}/g, (_match, text: string) => `*${text.trim()}*`);
+}
+
+function convertQuoteText(input: string): string {
+  return input.replace(quotePattern, (match: string, text: string, offset: number, wholeText: string) => {
+    const quotedText = text.trim();
+    if (quotedText.length === 0) {
+      return "\n>\n";
+    }
+
+    const prefix = offset > 0 && wholeText[offset - 1] !== "\n" ? "\n" : "";
+    const suffixOffset = offset + match.length;
+    const suffix = suffixOffset < wholeText.length && wholeText[suffixOffset] !== "\n" ? "\n" : "";
+
+    return `${prefix}${quotedText
+      .split("\n")
+      .map((line) => `> ${line.trim()}`)
+      .join("\n")}${suffix}`;
+  });
 }
 
 function convertLatexTables(input: string): string {
@@ -191,11 +229,10 @@ function convertMarkdownTables(input: string): string {
     return `${headerLine}\n${separator}\n${lines.slice(1).join("\n")}`;
   });
 }
-
 function convertInlineMathDelimiters(input: string): string {
   return input.replace(inlineMathPattern, (_match, body: string) => {
-    const trimmedBody = body.trim();
-    return trimmedBody.length > 0 ? `$${trimmedBody}$` : "$$";
+    const flattenedBody = flattenWhitespace(body);
+    return flattenedBody.length > 0 ? `$${flattenedBody}$` : "$$";
   });
 }
 
@@ -203,13 +240,17 @@ function convertBlockMathEnvironments(input: string): string {
   return input.replace(
     blockMathPattern,
     (_match, envName: string, content: string): string => {
-      const body = sanitizeBlockMathContent(envName, content).trim();
+      const body = flattenWhitespace(sanitizeBlockMathContent(envName, content));
       if (body.length === 0) {
-        return "$$\n$$";
+        return "$$ $$";
       }
-      return `$$\n${body}\n$$`;
+      return `$$ ${body} $$`;
     }
   );
+}
+
+function flattenWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function sanitizeBlockMathContent(envName: string, content: string): string {
@@ -307,7 +348,7 @@ function formatMarkdownItem(marker: string, content: string): string {
     return marker;
   }
 
-  const compact = normalized.slice(firstNonEmpty);
+  const compact = normalized.slice(firstNonEmpty).filter((line) => line.trim().length > 0);
   const firstLine = compact[0].trim();
   const remainder = compact.slice(1);
 
@@ -316,7 +357,7 @@ function formatMarkdownItem(marker: string, content: string): string {
   }
 
   const formattedRemainder = remainder
-    .map((line) => (line.trim().length > 0 ? `  ${line}` : ""))
+    .map((line) => `  ${line}`)
     .join("\n");
 
   return `${marker} ${firstLine}\n${formattedRemainder}`;
