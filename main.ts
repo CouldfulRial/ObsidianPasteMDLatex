@@ -18,11 +18,12 @@ const sectionPattern = /^\\section\{([^{}]+)\}$/gm;
 const subsectionPattern = /^\\subsection\{([^{}]+)\}$/gm;
 const subsubsectionPattern = /^\\subsubsection\{([^{}]+)\}$/gm;
 const quotePattern = /\\quote\{([^{}]+)\}/g;
+const quoteEnvironmentPattern = /\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g;
 const standaloneTabularPattern =
   /(?:\\begin\{center\}\s*)?(\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\})(?:\s*\\end\{center\})?/g;
 const markdownPipeTablePattern = /\|[^\n]*\|(\n\|[^\n]*\|)+/g;
 const supportedPattern =
-  /\\\([^\n]+?\\\)|\\begin\{(?:algorithm|equation\*?|align\*?|itemize|enumerate|table|tabular|center)\}|\\item\b|\|[^\n]*\|/;
+  /\\\([^\n]+?\\\)|\\begin\{(?:algorithm|equation\*?|align\*?|itemize|enumerate|table|tabular|center|quote)\}|\\item\b|\|[^\n]*\||\\quote\{/;
 const innermostListPattern =
   /\\begin\{(itemize|enumerate)\}((?:(?!\\begin\{(?:itemize|enumerate)\}|\\end\{(?:itemize|enumerate)\})[\s\S])*)\\end\{\1\}/g;
 
@@ -195,7 +196,23 @@ function convertBoldAndItalic(input: string): string {
 }
 
 function convertQuoteText(input: string): string {
-  return input.replace(quotePattern, (match: string, text: string, offset: number, wholeText: string) => {
+  // First handle \begin{quote}...\end{quote} environments
+  let transformed = input.replace(
+    quoteEnvironmentPattern,
+    (_match: string, content: string): string => {
+      const quotedText = content.trim();
+      if (quotedText.length === 0) {
+        return "\n>\n";
+      }
+      return "\n" + quotedText
+        .split("\n")
+        .map((line) => `> ${line.trim()}`)
+        .join("\n") + "\n";
+    }
+  );
+
+  // Then handle \quote{...} commands
+  transformed = transformed.replace(quotePattern, (match: string, text: string, offset: number, wholeText: string) => {
     const quotedText = text.trim();
     if (quotedText.length === 0) {
       return "\n>\n";
@@ -210,6 +227,8 @@ function convertQuoteText(input: string): string {
       .map((line) => `> ${line.trim()}`)
       .join("\n")}${suffix}`;
   });
+
+  return transformed;
 }
 
 function convertLatexTables(input: string): string {

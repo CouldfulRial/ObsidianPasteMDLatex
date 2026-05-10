@@ -21,6 +21,7 @@ To render converted algorithm blocks (```pseudo```), you need to install the Obs
 	- `\textit{...}` and `\emph{...}` -> `*...*`
 - Converts LaTeX quote text:
 	- `\quote{...}` -> `> ...`
+	- `\begin{quote}...\end{quote}` -> `> ...` (block format)
 - Converts LaTeX algorithm blocks to Obsidian-Pseudocode style:
 	- `\begin{algorithm} ... \end{algorithm}` -> ```pseudo fenced block
 - Converts block math environments to fenced math blocks:
@@ -100,11 +101,25 @@ This is **bold** and this is *italic*. Also *emphasized*.
 Quote text:
 
 ```text
-Input:
+Input (inline quote command):
 \quote{This is a quoted passage.}
 
 Output:
 > This is a quoted passage.
+```
+
+```text
+Input (quote environment block):
+\begin{quote}
+This is a longer quoted passage that spans
+multiple lines in the quote environment.
+It will preserve the structure.
+\end{quote}
+
+Output:
+> This is a longer quoted passage that spans
+> multiple lines in the quote environment.
+> It will preserve the structure.
 ```
 
 Pseudocode block:
